@@ -1,0 +1,41 @@
+{
+  "_comment": "Training Pipeline Configuration - Copy this to pipeline_config.json and customize",
+
+  "paths": {
+    "screenpipe_db": "~/.screenpipe/db.sqlite",
+    "git_repo": "~/ai/screenpipe",
+    "output_file": "~/ai/screenpipe/training_pipeline/training_data.jsonl"
+  },
+
+  "document_sources": {
+    "_comment": "Add documentation directories to process. Leave empty [] to use only audio.",
+    "directories": [
+      "~/ai/screenpipe/docs",
+      "~/ai/screenpipe/wiki",
+      "~/Documents/project-notes"
+    ],
+    "extensions": [".md", ".txt", ".rst"]
+  },
+
+  "filtering": {
+    "_comment_min_knowledge_length": "Minimum characters for audio/document content",
+    "min_knowledge_length": 100,
+
+    "_comment_min_code_lines": "Minimum lines of code changed in a commit",
+    "min_code_lines": 5,
+
+    "_comment_max_commits": "Maximum number of commits to process",
+    "max_commits": 500,
+
+    "_comment_top_k_matches": "Number of knowledge sources to match per commit",
+    "top_k_matches": 3
+  },
+
+  "confidence": {
+    "_comment": "Minimum semantic similarity score (0.0-1.0). Lower = more pairs but lower quality",
+    "min_confidence": 0.6
+  },
+
+  "_comment_code_extensions": "File extensions to include from git commits",
+  "code_extensions": [".rs", ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".java"]
+}

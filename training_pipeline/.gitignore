@@ -1,0 +1,17 @@
+# Generated output files
+training_data.jsonl
+validation_report.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Model files (if downloaded locally)
+*.pt
+*.bin
+*.safetensors
+
+# Temporary files
+*.tmp
+.DS_Store

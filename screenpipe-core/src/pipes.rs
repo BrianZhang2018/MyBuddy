@@ -1710,6 +1710,43 @@ pub async fn download_pipe_private(
         }
     };
 
+    // Validate downloaded content is a zip file
+    info!("downloaded {} bytes", zip_content.len());
+
+    if zip_content.len() < 4 {
+        let err_msg = format!("Downloaded file is too small to be a valid zip (only {} bytes)", zip_content.len());
+        error!("{}", err_msg);
+        cleanup_temp(&temp_dir, &temp_dir.join("temp.zip")).await?;
+        return Err(anyhow::anyhow!(err_msg));
+    }
+
+    // Check for zip magic numbers (PK\x03\x04 or PK\x05\x06)
+    let is_zip = zip_content.starts_with(b"PK\x03\x04") ||
+                 zip_content.starts_with(b"PK\x05\x06");
+
+    if !is_zip {
+        // Log first 200 bytes to help debug
+        let preview_len = std::cmp::min(200, zip_content.len());
+        let preview = String::from_utf8_lossy(&zip_content[..preview_len]);
+        error!("Downloaded content is not a zip file. First {} bytes: {}", preview_len, preview);
+
+        let err_msg = format!(
+            "Downloaded file is not a valid zip archive. Content appears to be: {}",
+            if preview.starts_with("<!DOCTYPE") || preview.starts_with("<html") {
+                "HTML page (possibly an error page)"
+            } else if preview.starts_with("{") {
+                "JSON (possibly an API error response)"
+            } else {
+                "unknown format"
+            }
+        );
+        error!("{}", err_msg);
+        cleanup_temp(&temp_dir, &temp_dir.join("temp.zip")).await?;
+        return Err(anyhow::anyhow!(err_msg));
+    }
+
+    info!("validated zip file magic numbers");
+
     // Create temporary zip file
     let temp_zip = temp_dir.join("temp.zip");
     if let Err(e) = tokio::fs::write(&temp_zip, &zip_content).await {

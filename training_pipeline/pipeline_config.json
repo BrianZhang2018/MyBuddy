@@ -1,0 +1,27 @@
+{
+  "paths": {
+    "screenpipe_db": "~/.screenpipe/db.sqlite",
+    "git_repo": "~/ai/screenpipe",
+    "output_file": "~/ai/screenpipe/training_pipeline/training_data.jsonl"
+  },
+
+  "document_sources": {
+    "directories": [
+
+    ],
+    "extensions": [".md", ".txt", ".rst"]
+  },
+
+  "filtering": {
+    "min_knowledge_length": 100,
+    "min_code_lines": 5,
+    "max_commits": 500,
+    "top_k_matches": 3
+  },
+
+  "confidence": {
+    "min_confidence": 0.6
+  },
+
+  "code_extensions": [".rs", ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".java"]
+}
