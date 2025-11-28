@@ -2,7 +2,7 @@
   "paths": {
     "screenpipe_db": "~/.screenpipe/db.sqlite",
     "git_repo": "~/ai/screenpipe",
-    "output_file": "~/ai/screenpipe/training_pipeline/training_data.jsonl"
+    "output_file": "~/ai/screenpipe/training_pipeline/output/training_data.jsonl"
   },
 
   "document_sources": {
