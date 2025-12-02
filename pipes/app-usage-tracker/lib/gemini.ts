@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { AppUsage, CategoryBreakdown } from './queries';
+import { AppUsage, CategoryBreakdown, WindowUsage } from './queries';
 import { UserGoal } from './storage';
 import { formatDuration } from './utils';
 
@@ -46,7 +46,7 @@ export async function analyzeBehavior(
   goals: UserGoals,
   timeRange: string
 ): Promise<BehavioralInsight> {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const prompt = `
 You are a behavioral analyst helping someone understand their computer usage patterns and achieve their goals.
@@ -155,4 +155,82 @@ Provide analysis in JSON format ONLY (no markdown, no code blocks):
       weeklyTrend: 'stable' as const
     };
   }
+}
+
+export async function categorizeWindowsWithAI(windows: WindowUsage[]): Promise<Map<string, WindowUsage[]>> {
+  if (windows.length === 0) {
+    return new Map();
+  }
+
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+  // Batch window titles for analysis
+  const windowTitles = windows.map((w, i) => `${i + 1}. ${w.title}`).join('\n');
+
+  const prompt = `
+Analyze these browser window/tab titles and categorize them into meaningful groups.
+Create 3-7 categories that best represent the content types.
+
+Window titles:
+${windowTitles}
+
+Rules:
+- Group similar content together (e.g., "Shopping", "News", "Social Media", "Work", "Entertainment")
+- Use clear, descriptive category names
+- Each window must be assigned to exactly one category
+- If a window doesn't fit any category, put it in "Other"
+
+Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
+{
+  "categories": [
+    {
+      "name": "Category Name",
+      "windowIds": [1, 3, 5]
+    }
+  ]
+}
+`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    // Extract JSON from response
+    let jsonText = text.trim();
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+
+    if (!jsonMatch) {
+      console.error('Failed to parse AI categorization:', text);
+      return fallbackCategorization(windows);
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // Map window IDs back to windows
+    const categoryMap = new Map<string, WindowUsage[]>();
+
+    for (const category of parsed.categories) {
+      const categoryWindows = category.windowIds
+        .map((id: number) => windows[id - 1])
+        .filter(Boolean);
+
+      if (categoryWindows.length > 0) {
+        categoryMap.set(category.name, categoryWindows);
+      }
+    }
+
+    return categoryMap;
+  } catch (error) {
+    console.error('Error categorizing with AI:', error);
+    return fallbackCategorization(windows);
+  }
+}
+
+function fallbackCategorization(windows: WindowUsage[]): Map<string, WindowUsage[]> {
+  // Simple fallback categorization
+  const map = new Map<string, WindowUsage[]>();
+  map.set('Uncategorized', windows);
+  return map;
 }

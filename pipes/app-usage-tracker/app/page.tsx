@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { formatDuration } from '@/lib/utils';
+import { AppBreakdown } from '@/components/AppBreakdown';
 
 export default function Home() {
   const [timeRange, setTimeRange] = useState('today');
@@ -51,15 +52,59 @@ export default function Home() {
 
   const addGoal = async (goal: any) => {
     try {
-      await fetch('/api/goals', {
+      const response = await fetch('/api/goals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(goal)
       });
-      fetchData();
+      const newGoal = await response.json();
+
+      // Update goals locally without full refresh
+      const updatedGoals = [...goals, newGoal];
+      setGoals(updatedGoals);
       setShowAddGoal(false);
+
+      // Refresh AI insights with new goals (async)
+      if (usageData) {
+        refreshAIInsights(updatedGoals);
+      }
     } catch (error) {
       console.error('Error adding goal:', error);
+    }
+  };
+
+  const deleteGoal = async (goalId: string) => {
+    try {
+      await fetch(`/api/goals?id=${goalId}`, {
+        method: 'DELETE'
+      });
+
+      // Update goals locally
+      const updatedGoals = goals.filter(g => g.id !== goalId);
+      setGoals(updatedGoals);
+
+      // Refresh AI insights
+      if (usageData && updatedGoals.length > 0) {
+        refreshAIInsights(updatedGoals);
+      } else {
+        setAiInsights(null);
+      }
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+    }
+  };
+
+  const refreshAIInsights = async (currentGoals: any[]) => {
+    try {
+      const aiResponse = await fetch('/api/ai-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeRange, goals: currentGoals })
+      });
+      const ai = await aiResponse.json();
+      setAiInsights(ai);
+    } catch (error) {
+      console.log('AI analysis not available');
     }
   };
 
@@ -130,22 +175,17 @@ export default function Home() {
         {usageData && usageData.apps && usageData.apps.length > 0 && (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4">Top Applications</h2>
-            <div className="space-y-3">
+            <p className="text-sm text-gray-600 mb-4">
+              Click on browser apps to see detailed website breakdowns
+            </p>
+            <div className="space-y-2">
               {usageData.apps.slice(0, 10).map((app: any, index: number) => (
-                <div key={app.name} className="flex items-center gap-3">
-                  <span className="text-gray-500 w-8">{index + 1}.</span>
-                  <span className="flex-1 font-medium">{app.name}</span>
-                  <div className="flex-1 bg-gray-200 rounded-full h-4">
-                    <div
-                      className="bg-blue-500 h-4 rounded-full"
-                      style={{ width: `${app.percentage}%` }}
-                    />
-                  </div>
-                  <span className="w-24 text-right">{formatDuration(app.duration)}</span>
-                  <span className="w-16 text-right text-gray-500">
-                    {app.percentage.toFixed(1)}%
-                  </span>
-                </div>
+                <AppBreakdown
+                  key={app.name}
+                  app={app}
+                  index={index}
+                  timeRange={timeRange}
+                />
               ))}
             </div>
           </div>
@@ -165,18 +205,45 @@ export default function Home() {
 
           {goals.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              <p>No goals set yet. Add your first goal to get started!</p>
+              <p>No goals set yet. Add your first goal to get AI-powered insights!</p>
+              <p className="text-sm mt-2">You can add multiple goals to track different aspects of your usage.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {goals.map(goal => (
-                <div key={goal.id} className="p-4 border rounded-lg">
-                  <div className="font-semibold">{goal.description}</div>
-                  <div className="text-sm text-gray-600">
-                    Target: {goal.target}h per {goal.period} • Priority: {goal.priority}
+                <div key={goal.id} className="p-4 border rounded-lg hover:border-gray-300 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="font-semibold">{goal.description}</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        <span className="inline-block bg-gray-100 px-2 py-1 rounded text-xs mr-2">
+                          {goal.type.replace('_', ' ')}
+                        </span>
+                        Target: {goal.target}h per {goal.period}
+                        <span className={`ml-2 ${
+                          goal.priority === 'high' ? 'text-red-600' :
+                          goal.priority === 'medium' ? 'text-yellow-600' :
+                          'text-blue-600'
+                        }`}>
+                          • {goal.priority} priority
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteGoal(goal.id)}
+                      className="ml-4 text-gray-400 hover:text-red-500 transition-colors"
+                      title="Delete goal"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))}
+              <div className="text-sm text-gray-500 text-center pt-2">
+                {goals.length} {goals.length === 1 ? 'goal' : 'goals'} set • Click + Add Goal to add more
+              </div>
             </div>
           )}
         </div>
